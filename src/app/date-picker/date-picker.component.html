@@ -1,0 +1,49 @@
+<div class="calendar">
+  <div class="calendar-header">
+    <div class="previous-month">
+      <button (click)="previousMonth()">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          height="24px"
+          viewBox="0 0 24 24"
+          width="24px"
+          fill="#000000"
+        >
+          <path d="M0 0h24v24H0V0z" fill="none" />
+          <path d="M15.61 7.41L14.2 6l-6 6 6 6 1.41-1.41L11.03 12l4.58-4.59z" />
+        </svg>
+      </button>
+    </div>
+    <div class="month-year-container">
+      <div>{{ date | date: "YYYY" }}</div>
+      <div>{{ date | date: "LLLL" }}</div>
+    </div>
+    <div class="next-month">
+      <button (click)="nextMonth()">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          height="24px"
+          viewBox="0 0 24 24"
+          width="24px"
+          fill="#000000"
+        >
+          <path d="M0 0h24v24H0V0z" fill="none" />
+          <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" />
+        </svg>
+      </button>
+    </div>
+  </div>
+  <div class="month">
+    <div class="week-day" *ngFor="let day of days | slice: 0:7; trackBy: dateTrackBy">
+      {{ day | date: "E" }}
+    </div>
+    <div
+      [ngClass]="day | datePickerClass: date:selectDays"
+      *ngFor="let day of days; let i = index; ; trackBy: dateTrackBy"
+      #day
+      [attr.index]="i"
+    >
+      {{ date.getMonth() === day.getMonth() ? (day | date: "d") : null }}
+    </div>
+  </div>
+</div>

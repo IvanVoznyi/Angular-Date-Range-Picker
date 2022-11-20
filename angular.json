@@ -17,7 +17,7 @@
         "build": {
           "builder": "@angular-devkit/build-angular:browser",
           "options": {
-            "outputPath": "dist/angular-range-date-picker",
+            "outputPath": "docs",
             "index": "src/index.html",
             "main": "src/main.ts",
             "polyfills": [
@@ -48,6 +48,7 @@
                   "maximumError": "4kb"
                 }
               ],
+              "baseHref": "https://ivanvoznyi.github.io/Angular-Date-Range-Picker/",
               "outputHashing": "all"
             },
             "development": {
@@ -100,5 +101,8 @@
         }
       }
     }
+  },
+  "cli": {
+    "analytics": "19f2e924-74f8-49c4-afe7-d279ff96f6e9"
   }
 }

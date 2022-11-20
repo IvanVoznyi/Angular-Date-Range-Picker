@@ -1,0 +1,67 @@
+.calendar {
+    height: 386px;
+
+    .calendar-header {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        width: 350px;
+
+        .previous-month,
+        .next-month {
+            grid-column: span 2;
+            justify-self: center;
+            align-self: center;
+
+            button {
+                height: 25px;
+                width: 50px;
+                padding: 0;
+                border: none;
+                background-color: transparent;
+                cursor: pointer;
+
+                &:hover {
+                    background-color: #B39CD0;
+                }
+            }
+        }
+
+        .month-year-container {
+            text-align: center;
+            grid-column: span 3;
+        }
+    }
+
+    .month {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        align-items: center;
+        width: 350px;
+        column-gap: 1px;
+        row-gap: 1px;
+
+        .day,
+        .offset,
+        .week-day {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 50px;
+        }
+
+        .day {
+            cursor: pointer;
+            &:hover {
+                background-color: rgba($color: #845EC2, $alpha: 0.5);
+            }
+        }
+
+        .start, .end {
+            background-color: #845EC2;
+        }
+
+        .selected {
+            background-color: #FBEAFF;
+        }
+    }
+}
