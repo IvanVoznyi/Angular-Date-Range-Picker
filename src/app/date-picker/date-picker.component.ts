@@ -16,8 +16,9 @@ import {
   ViewChildren,
 } from '@angular/core';
 import {
-  distinctUntilChanged,
+  BehaviorSubject,
   fromEvent,
+  map,
   merge,
   Observable,
   repeat,
@@ -26,10 +27,10 @@ import {
   startWith,
   Subject,
   switchMap,
-  take,
   takeUntil,
   takeWhile,
   throwError,
+  withLatestFrom,
 } from 'rxjs';
 import { SelectedDays } from '../app.component';
 import { DatePickerClassPipe } from './pipe/datepickerclass.pipe';
@@ -45,20 +46,15 @@ enum GenerateDatePickerType {
 }
 
 interface AccumulatorClick {
-  selectDay: SelectDay;
-  firstDayIndex: number;
-}
-
-interface AccumulatorMouseEnter {
+  selectedDay: SelectedDay;
   firstDayIndex: number;
   secondDayIndex: number;
-  selectDay: SelectDay;
 }
 
-enum SelectDay {
-  None,
-  FirstDay,
-  SecondDay,
+enum SelectedDay {
+  None = 'None',
+  FirstDay = 'FirstDay',
+  SecondDay = 'SecondDay'
 }
 
 @Component({
@@ -75,6 +71,7 @@ export class DatePickerComponent
   protected days: Array<Date> = [];
   protected date = new Date();
   protected untilDestroy = new Subject<void>();
+  private resetSelectedDays = new BehaviorSubject<boolean>(false);
 
   @ViewChildren('day') daysOfTheMonth: QueryList<ElementRef> = new QueryList();
 
@@ -157,86 +154,92 @@ export class DatePickerComponent
 
     merge(...clickEvent)
       .pipe(
-        distinctUntilChanged(
-          (previous, current) => previous.target === current.target
-        ),
-        take(2),
+        withLatestFrom(this.resetSelectedDays),
         scan(
-          (acc: AccumulatorClick, event: Event) => {
-            return {
-              selectDay:
-                acc.selectDay === SelectDay.None
-                  ? SelectDay.FirstDay
-                  : SelectDay.SecondDay,
-              firstDayIndex: Number(
-                (event.target as HTMLElement).getAttribute('index')
-              ),
-            };
-          },
-          {
-            selectDay: SelectDay.None,
-            firstDayIndex: 0,
-          } as AccumulatorClick
-        ),
-        switchMap((event) =>
-          merge(...mouseEnter).pipe(
-            //after the first click, we have to start from this "event", that's why we need to use 'startWith'
-            startWith({
-              firstDayIndex: event.firstDayIndex,
-              selectDay: event.selectDay,
-            }),
-            takeWhile(() => {
-              return event.selectDay !== SelectDay.SecondDay;
-            }, true)
-          )
-        ),
-        scan(
-          (acc: AccumulatorMouseEnter, event): Observable<never> | any => {
-            if (!(event instanceof Event)) {
-              const isSelectFirstDay = event.selectDay === SelectDay.FirstDay;
-              acc.firstDayIndex = isSelectFirstDay
-                ? event.firstDayIndex
-                : acc.firstDayIndex;
-              acc.secondDayIndex = isSelectFirstDay
-                ? event.firstDayIndex
-                : acc.secondDayIndex;
-              acc.selectDay = event.selectDay;
-            } else {
-              acc.firstDayIndex = acc.firstDayIndex;
-              acc.secondDayIndex = Number(
-                (event.target as HTMLElement).getAttribute('index')
-              );
-            }
+          (acc: AccumulatorClick, [event, isResetSelectedDays]) => {
+            const dayIndex = Number(
+              (event.target as HTMLElement).getAttribute('index')
+            );
 
             if (
-              this.days[acc.firstDayIndex].getTime() >
-              this.days[acc.secondDayIndex].getTime()
+              dayIndex <= acc.firstDayIndex ||
+              isResetSelectedDays ||
+              acc.selectedDay === SelectedDay.SecondDay
             ) {
-              return throwError(Error);
+              acc.selectedDay = SelectedDay.None;
+            }
+
+            if (acc.selectedDay === SelectedDay.None) {
+              acc.firstDayIndex = dayIndex;
+              acc.secondDayIndex = dayIndex;
+              acc.selectedDay = SelectedDay.FirstDay;
+              this.resetSelectedDays.next(false);
+            } else {
+              acc.firstDayIndex = acc.firstDayIndex;
+              acc.secondDayIndex = dayIndex;
+              acc.selectedDay = SelectedDay.SecondDay;
             }
 
             return acc;
           },
           {
+            selectedDay: SelectedDay.None,
             firstDayIndex: 0,
             secondDayIndex: 0,
-            selectDay: SelectDay.None,
-          } as AccumulatorMouseEnter
+          } as AccumulatorClick
         ),
+        takeWhile((value) => {
+          return value.selectedDay !== SelectedDay.SecondDay;
+        }, true),
+        switchMap((event) => {
+          return merge(...mouseEnter).pipe(
+            startWith(event),
+            takeWhile((eventMouseEnter) => {
+              if (eventMouseEnter instanceof Event) {
+                const secondDayIndex = Number(
+                  (eventMouseEnter.target as HTMLElement).getAttribute('index')
+                );
+                return event.firstDayIndex <= secondDayIndex;
+              }
+              return eventMouseEnter.selectedDay !== SelectedDay.SecondDay;
+            }, true),
+            map((eventMouseEnter) => {  
+              if (eventMouseEnter instanceof Event) {
+                return {
+                  firstDayIndex: event.firstDayIndex,
+                  secondDayIndex: Number(
+                    (eventMouseEnter.target as HTMLElement).getAttribute(
+                      'index'
+                    )
+                  ),
+                  selectedDay: event.selectedDay,
+                };
+              }
+              return eventMouseEnter;
+            }),
+          );
+        }),
+        map((event) => {
+          if (event.secondDayIndex < event.firstDayIndex) {
+            this.resetSelectedDays.next(true);
+            return throwError(Error);
+          }
+          return event;
+        }),
         retry(),
         repeat(),
         takeUntil(this.untilDestroy)
       )
       .subscribe({
-        next: (event) => {
+        next: (event: any) => {
           if (!(event instanceof Observable)) {
-            if (event.selectDay !== SelectDay.SecondDay) {
+            if (event.selectedDay !== SelectedDay.SecondDay) {
               this.daysOfTheMonth.forEach((item: ElementRef<HTMLElement>) => {
                 this.removeClass(item);
               });
             }
 
-            if (event.selectDay == SelectDay.SecondDay) {
+            if (event.selectedDay == SelectedDay.SecondDay) {
               this.selectedDays.emit({
                 startDay: this.days[event.firstDayIndex],
                 endDay: this.days[event.secondDayIndex],
@@ -269,7 +272,9 @@ export class DatePickerComponent
             });
           }
         },
-        error: (err) => console.error(err),
+        error: (err) => {
+          console.error(err);
+        },
       });
   }
 
