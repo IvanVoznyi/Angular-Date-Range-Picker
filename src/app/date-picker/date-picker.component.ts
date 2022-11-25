@@ -15,6 +15,7 @@ import {
   SimpleChanges,
   ViewChildren,
 } from '@angular/core';
+import { EventManager } from '@angular/platform-browser';
 import {
   BehaviorSubject,
   fromEvent,
@@ -54,7 +55,7 @@ interface AccumulatorClick {
 enum SelectedDay {
   None = 'None',
   FirstDay = 'FirstDay',
-  SecondDay = 'SecondDay'
+  SecondDay = 'SecondDay',
 }
 
 @Component({
@@ -137,6 +138,29 @@ export class DatePickerComponent
     this.renderer.removeClass(item.nativeElement, 'end');
   }
 
+  addClassName(index: number, event: AccumulatorClick) {
+    if (event.firstDayIndex === index) {
+      return 'start';
+    }
+
+    if (
+      index === event.secondDayIndex &&
+      event.firstDayIndex !== event.secondDayIndex
+    ) {
+      return 'end';
+    }
+
+    if (
+      this.days[event.firstDayIndex].getDate() < this.days[index].getDate() &&
+      this.days[event.secondDayIndex].getDate() > this.days[index].getDate() &&
+      this.days[index].getMonth() === this.date.getMonth()
+    ) {
+      return 'selected';
+    }
+
+    return 'remove';
+  }
+
   onSelectedDate() {
     let clickEvent = this.daysOfTheMonth
       .filter((item: ElementRef<HTMLElement>) => {
@@ -203,7 +227,7 @@ export class DatePickerComponent
               }
               return eventMouseEnter.selectedDay !== SelectedDay.SecondDay;
             }, true),
-            map((eventMouseEnter) => {  
+            map((eventMouseEnter) => {
               if (eventMouseEnter instanceof Event) {
                 return {
                   firstDayIndex: event.firstDayIndex,
@@ -216,7 +240,7 @@ export class DatePickerComponent
                 };
               }
               return eventMouseEnter;
-            }),
+            })
           );
         }),
         map((event) => {
@@ -231,14 +255,8 @@ export class DatePickerComponent
         takeUntil(this.untilDestroy)
       )
       .subscribe({
-        next: (event: any) => {
+        next: (event) => {
           if (!(event instanceof Observable)) {
-            if (event.selectedDay !== SelectedDay.SecondDay) {
-              this.daysOfTheMonth.forEach((item: ElementRef<HTMLElement>) => {
-                this.removeClass(item);
-              });
-            }
-
             if (event.selectedDay == SelectedDay.SecondDay) {
               this.selectedDays.emit({
                 startDay: this.days[event.firstDayIndex],
@@ -246,26 +264,43 @@ export class DatePickerComponent
               });
             }
 
-            this.renderer.addClass(
-              this.daysOfTheMonth.get(event.firstDayIndex)!.nativeElement,
-              'start'
-            );
-            this.renderer.addClass(
-              this.daysOfTheMonth.get(event.secondDayIndex)!.nativeElement,
-              'end'
-            );
-
-            this.daysOfTheMonth.forEach((element, index) => {
-              if (
-                this.days[event.firstDayIndex].getDate() <
-                  this.days[index].getDate() &&
-                this.days[event.secondDayIndex].getDate() >
-                  this.days[index].getDate() &&
-                this.days[index].getMonth() === this.date.getMonth()
-              ) {
-                this.renderer.addClass(element.nativeElement, 'selected');
+            this.daysOfTheMonth.forEach(
+              (element: ElementRef<HTMLElement>, index) => {
+                switch (this.addClassName(index, event)) {
+                  case 'start': {
+                    if (/selected|end/g.test(element.nativeElement.className)) {
+                      this.renderer.removeClass(
+                        element.nativeElement,
+                        'selected'
+                      );
+                      this.renderer.removeClass(element.nativeElement, 'end');
+                    }
+                    this.renderer.addClass(element.nativeElement, 'start');
+                    break;
+                  }
+                  case 'selected': {
+                    if (/end/g.test(element.nativeElement.className)) {
+                      this.renderer.removeClass(element.nativeElement, 'end');
+                    }
+                    this.renderer.addClass(element.nativeElement, 'selected');
+                    break;
+                  }
+                  case 'end': {
+                    if (/selected/g.test(element.nativeElement.className)) {
+                      this.renderer.removeClass(
+                        element.nativeElement,
+                        'selected'
+                      );
+                    }
+                    this.renderer.addClass(element.nativeElement, 'end');
+                    break;
+                  }
+                  case 'remove': {
+                    this.removeClass(element);
+                  }
+                }
               }
-            });
+            );
           } else {
             this.daysOfTheMonth.forEach((item) => {
               this.removeClass(item);
