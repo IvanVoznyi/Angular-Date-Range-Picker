@@ -15,9 +15,9 @@ import {
   SimpleChanges,
   ViewChildren,
 } from '@angular/core';
-import { EventManager } from '@angular/platform-browser';
 import {
   BehaviorSubject,
+  filter,
   fromEvent,
   map,
   merge,
@@ -27,6 +27,7 @@ import {
   scan,
   startWith,
   Subject,
+  Subscription,
   switchMap,
   takeUntil,
   takeWhile,
@@ -73,6 +74,7 @@ export class DatePickerComponent
   protected date = new Date();
   protected untilDestroy = new Subject<void>();
   private resetSelectedDays = new BehaviorSubject<boolean>(false);
+  private subscription: Subscription | undefined;
 
   @ViewChildren('day') daysOfTheMonth: QueryList<ElementRef> = new QueryList();
 
@@ -162,22 +164,20 @@ export class DatePickerComponent
   }
 
   onSelectedDate() {
-    let clickEvent = this.daysOfTheMonth
-      .filter((item: ElementRef<HTMLElement>) => {
-        return item.nativeElement.className !== 'offset';
-      })
-      .map((t: ElementRef<HTMLElement>) => fromEvent(t.nativeElement, 'click'));
+    let clickEvent = this.daysOfTheMonth.map((t: ElementRef<HTMLElement>) =>
+      fromEvent(t.nativeElement, 'click')
+    );
 
-    let mouseEnter = this.daysOfTheMonth
-      .filter((item: ElementRef<HTMLElement>) => {
-        return item.nativeElement.className !== 'offset';
-      })
-      .map((t: ElementRef<HTMLElement>) =>
-        fromEvent(t.nativeElement, 'mouseenter')
-      );
+    let mouseEnter = this.daysOfTheMonth.map((t: ElementRef<HTMLElement>) =>
+      fromEvent(t.nativeElement, 'mouseenter')
+    );
 
-    merge(...clickEvent)
+    this.subscription = merge(...clickEvent)
       .pipe(
+        filter((event) => {
+          const div = event.target as HTMLDivElement;
+          return div.className !== 'offset';
+        }),
         withLatestFrom(this.resetSelectedDays),
         scan(
           (acc: AccumulatorClick, [event, isResetSelectedDays]) => {
@@ -217,6 +217,10 @@ export class DatePickerComponent
         }, true),
         switchMap((event) => {
           return merge(...mouseEnter).pipe(
+            filter((event) => {
+              const div = event.target as HTMLDivElement;
+              return div.className !== 'offset';
+            }),
             startWith(event),
             takeWhile((eventMouseEnter) => {
               if (eventMouseEnter instanceof Event) {
@@ -317,6 +321,9 @@ export class DatePickerComponent
     this.daysOfTheMonth.changes
       .pipe(takeUntil(this.untilDestroy))
       .subscribe(() => {
+        if (this.subscription) {
+          this.subscription.unsubscribe();
+        }
         this.onSelectedDate();
       });
 
