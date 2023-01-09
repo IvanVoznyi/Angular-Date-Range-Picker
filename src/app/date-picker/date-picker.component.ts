@@ -59,6 +59,8 @@ enum SelectedDay {
   SecondDay = 'SecondDay',
 }
 
+type HTMLElementEvent = Event & { target: HTMLElement };
+
 @Component({
   standalone: true,
   selector: 'app-date-picker',
@@ -76,7 +78,8 @@ export class DatePickerComponent
   private resetSelectedDays = new BehaviorSubject<boolean>(false);
   private subscription: Subscription | undefined;
 
-  @ViewChildren('day') daysOfTheMonth: QueryList<ElementRef> = new QueryList();
+  @ViewChildren('day') daysOfTheMonth: QueryList<ElementRef<HTMLDivElement>> =
+    new QueryList();
 
   @Input()
   selectDays: SelectedDays | undefined;
@@ -164,26 +167,25 @@ export class DatePickerComponent
   }
 
   onSelectedDate() {
-    let clickEvent = this.daysOfTheMonth.map((t: ElementRef<HTMLElement>) =>
-      fromEvent(t.nativeElement, 'click')
-    );
+    let clickEvent: Observable<HTMLElementEvent>[] = [];
+    let mouseEnter: Observable<HTMLElementEvent>[] = [];
 
-    let mouseEnter = this.daysOfTheMonth.map((t: ElementRef<HTMLElement>) =>
-      fromEvent(t.nativeElement, 'mouseenter')
-    );
+    this.daysOfTheMonth.forEach((element) => {
+      clickEvent.push(fromEvent<HTMLElementEvent>(element.nativeElement, 'click'));
+      mouseEnter.push(
+        fromEvent<HTMLElementEvent>(element.nativeElement, 'mouseenter')
+      );
+    });
 
     this.subscription = merge(...clickEvent)
       .pipe(
         filter((event) => {
-          const div = event.target as HTMLDivElement;
-          return div.className !== 'offset';
+          return event.target.className !== 'offset';
         }),
         withLatestFrom(this.resetSelectedDays),
         scan(
           (acc: AccumulatorClick, [event, isResetSelectedDays]) => {
-            const dayIndex = Number(
-              (event.target as HTMLElement).getAttribute('index')
-            );
+            const dayIndex = Number(event.target.getAttribute('index'));
 
             if (
               dayIndex <= acc.firstDayIndex ||
@@ -218,14 +220,13 @@ export class DatePickerComponent
         switchMap((event) => {
           return merge(...mouseEnter).pipe(
             filter((event) => {
-              const div = event.target as HTMLDivElement;
-              return div.className !== 'offset';
+              return event.target.className !== 'offset';
             }),
             startWith(event),
             takeWhile((eventMouseEnter) => {
               if (eventMouseEnter instanceof Event) {
                 const secondDayIndex = Number(
-                  (eventMouseEnter.target as HTMLElement).getAttribute('index')
+                  eventMouseEnter.target.getAttribute('index')
                 );
                 return event.firstDayIndex <= secondDayIndex;
               }
@@ -236,9 +237,7 @@ export class DatePickerComponent
                 return {
                   firstDayIndex: event.firstDayIndex,
                   secondDayIndex: Number(
-                    (eventMouseEnter.target as HTMLElement).getAttribute(
-                      'index'
-                    )
+                    eventMouseEnter.target.getAttribute('index')
                   ),
                   selectedDay: event.selectedDay,
                 };
@@ -269,7 +268,7 @@ export class DatePickerComponent
             }
 
             this.daysOfTheMonth.forEach(
-              (element: ElementRef<HTMLElement>, index) => {
+              (element, index) => {
                 switch (this.addClassName(index, event)) {
                   case 'start': {
                     if (/selected|end/g.test(element.nativeElement.className)) {

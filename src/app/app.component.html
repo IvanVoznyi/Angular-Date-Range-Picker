@@ -1,29 +1,29 @@
 <div class="date-picker-info">
-    <div class="start-week-container">
-        <label>Start Week</label>
-        <form [formGroup]="form">
-            <label for="sun">Sun</label>
-            <input formControlName="startWeek" [value]="1" id="sun" type="radio" />
-            <label for="mon">Mon</label>
-            <input formControlName="startWeek" [value]="0" id="mon" type="radio" />
-        </form>
-    </div>
-    <div class="selected-days-container">
-        <ng-container *ngIf="selectedDays">
-            <div>
-                <label>
-                    Start Day:
-                </label>
-                {{selectedDays.startDay | date}}
-            </div>
-            <div>
-                <label>
-                    End Day:
-                </label>
-                {{selectedDays.endDay | date}}
-            </div>
-        </ng-container>
-    </div>
+  <div class="start-week-container">
+    <label>Start Week</label>
+    <form [formGroup]="form">
+      <label for="sun">Sun</label>
+      <input formControlName="startWeek" [value]="1" id="sun" type="radio" />
+      <label for="mon">Mon</label>
+      <input formControlName="startWeek" [value]="0" id="mon" type="radio" />
+    </form>
+  </div>
+  <div class="selected-days-container">
+    <ng-container *ngIf="selectedDays">
+      <div>
+        <label> Start Day: </label>
+        {{ selectedDays.startDay | date }}
+      </div>
+      <div>
+        <label> End Day: </label>
+        {{ selectedDays.endDay | date }}
+      </div>
+    </ng-container>
+  </div>
 </div>
-<app-date-picker [startWeek]="startWeek" [selectDays]="selectedDays" (selectedDays)="onSelectedDays($event)">
+<app-date-picker
+  [startWeek]="startWeek"
+  [selectDays]="selectedDays"
+  (selectedDays)="onSelectedDays($event)"
+>
 </app-date-picker>
